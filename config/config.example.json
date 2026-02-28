@@ -1,0 +1,36 @@
+{
+    "email": {
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "use_tls": true,
+        "username": "your-email@gmail.com",
+        "password": "your-app-password",
+        "from_address": "your-email@gmail.com",
+        "from_name": "Tender Offer Scanner",
+        "recipients": [
+            "recipient1@example.com",
+            "recipient2@example.com"
+        ]
+    },
+    "schedule": {
+        "enabled": true,
+        "run_time": "08:00",
+        "timezone": "America/New_York"
+    },
+    "scan": {
+        "min_spread_pct": 0.5,
+        "include_odd_lot_only": false,
+        "max_days_to_expiry": 90,
+        "filing_types": [
+            "SC TO-I",
+            "SC TO-T",
+            "SC 14D-9"
+        ],
+        "min_market_cap_millions": 50,
+        "exclude_debt_offers": true
+    },
+    "output": {
+        "results_dir": "results",
+        "keep_history_days": 30
+    }
+}

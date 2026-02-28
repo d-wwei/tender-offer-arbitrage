@@ -1,0 +1,9 @@
+{
+  "slug": "tender-offer-arbitrage",
+  "version": "1.0.0",
+  "name": "Tender Offer Arbitrage Scanner",
+  "description": "Scan, verify, and report tender offer arbitrage opportunities with email alerts and daily scheduling.",
+  "author": "admin",
+  "tags": ["finance", "arbitrage", "tender-offer", "investing"],
+  "publishedAt": 1740700000000
+}
