@@ -1,9 +1,15 @@
 {
   "slug": "tender-offer-arbitrage",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "Tender Offer Arbitrage Scanner",
-  "description": "Scan, verify, and report tender offer arbitrage opportunities with email alerts and daily scheduling.",
-  "author": "admin",
-  "tags": ["finance", "arbitrage", "tender-offer", "investing"],
-  "publishedAt": 1740700000000
+  "description": "AI Agent skill for scanning and analyzing tender offer arbitrage opportunities. The agent searches SEC EDGAR, financial news, and market data to identify active tender offers, verify terms through official filings, and generate comprehensive analysis reports with spread calculations, odd-lot strategies, and risk assessments.",
+  "author": "user",
+  "tags": [
+    "finance",
+    "arbitrage",
+    "tender-offer",
+    "sec-edgar",
+    "investing"
+  ],
+  "publishedAt": "2026-02-28"
 }

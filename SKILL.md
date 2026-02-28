@@ -1,165 +1,232 @@
 ---
 name: tender-offer-arbitrage
-description: "Scan, verify, and report tender offer arbitrage opportunities in the US stock market. Supports automated daily scanning, SEC filing verification, spread analysis, odd-lot detection, and multi-recipient email alerts."
-version: "1.0.0"
+description: "扫描市场上的要约收购(Tender Offer)套利机会，分析价差、odd-lot优先权和风险，生成投资分析报告。"
 ---
 
-# Tender Offer Arbitrage Scanner
+# 要约收购套利机会扫描 (Tender Offer Arbitrage Scanner)
 
-An automated skill for discovering and analyzing tender offer arbitrage opportunities in the US equity market.
+你是一个专业的并购套利分析师。你的任务是搜索当前市场上活跃的要约收购(Tender Offer)，分析每笔交易的套利机会，并生成一份详尽的中文投资分析报告。
 
-## Overview
+## 完整工作流程
 
-This skill provides a complete pipeline:
-1. **Scan** — Search SEC EDGAR and financial data sources for active tender offers
-2. **Verify** — Download and parse official SEC filings to extract deal terms
-3. **Report** — Generate a ranked Markdown report with spread analysis
-4. **Notify** — Send the report to one or more email recipients
-5. **Schedule** — Set up daily automated runs
+按以下步骤依次执行：
 
-## Prerequisites
+### 第一步：搜索活跃的要约收购
 
-Install Python dependencies:
-```bash
-cd scripts/
-pip install -r requirements.txt
+使用以下搜索策略发现当前活跃的 Tender Offer：
+
+**必须搜索的查询词（依次搜索）：**
+
+1. `active tender offer 2026` 或 `current tender offer opportunities`
+2. `issuer tender offer odd lot priority 2026`
+3. `dutch auction tender offer 2026`
+4. `SEC SC TO-I filing recent`
+5. `SEC SC TO-T filing recent`
+6. `tender offer arbitrage opportunities`
+
+**必须检查的网站：**
+
+- **SEC EDGAR**: https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=SC+TO&dateb=&owner=include&count=40&search_text=&action=getcompany
+  - 搜索最近 60 天内的 `SC TO-I`（发行人回购）和 `SC TO-T`（第三方收购）文件
+- **InsideArbitrage**: https://www.insidearbitrage.com/tender-offers/
+- **Seeking Alpha**: 搜索 `tender offer` 相关文章
+- **MarketBeat**: https://www.marketbeat.com/corporate-events/tender-offers/
+
+**对每笔发现的交易，记录以下信息：**
+
+- 股票代码 (Ticker)
+- 公司名称
+- 要约类型（发行人回购 / 第三方收购 / 全部 / 部分）
+- 要约价格（固定价 or 价格区间）
+- 截止日期
+- 回购/收购总金额
+- 是否 Dutch Auction
+
+### 第二步：查阅官方文件验证
+
+对每笔交易，在 SEC EDGAR 上查找对应的官方文件并确认以下关键信息：
+
+**需要验证的关键条款：**
+
+1. **要约价格** — 固定价还是区间？每股多少？
+2. **截止日期** — 什么时候到期？是否可能延期？
+3. **Odd-Lot 优先权** — 持有不足100股的股东是否有优先接受权？
+   - 搜索文件中的关键词：`odd lot`, `fewer than 100 shares`, `odd-lot priority`, `not subject to proration`
+4. **Proration（按比例缩减）** — 如果超额认购，如何分配？
+5. **条件** — 是否有前提条件（如监管批准、最低认购量、financing条件）？
+6. **收购方** — 谁发起的？有无实力完成？
+
+**SEC 文件类型说明：**
+
+| 文件类型 | 含义 |
+|---------|------|
+| SC TO-I | Issuer Tender Offer — 公司自己回购股份 |
+| SC TO-T | Third-Party Tender Offer — 第三方要约收购 |
+| SC 14D-9 | 目标公司董事会的推荐/反对意见 |
+| SC TO-I/A, SC TO-T/A | 修正案（更新条款或延期） |
+
+### 第三步：获取实时股价并计算价差
+
+对每只股票，获取当前市场价格并计算：
+
+```
+价差(绝对值) = 要约价 - 当前股价
+价差(百分比) = (要约价 - 当前股价) / 当前股价 × 100%
+年化收益率 = 价差% × 365 / 剩余天数
 ```
 
-### Required API/Services
-- **Internet access** — for SEC EDGAR, Yahoo Finance, web scraping
-- **SMTP credentials** — for email notifications (Gmail App Password, or any SMTP server)
+**对于 Dutch Auction（荷兰式拍卖），分别计算：**
+- 最低价价差
+- 中间价价差
+- 最高价价差
 
-## Configuration
+**对于有 Odd-Lot 优先权的交易，计算：**
 
-Copy and edit the config file:
-```bash
-cp config/config.example.json config/config.json
-```
+| 买入股数 | 成本 | 收入(按要约价) | 毛利 | 收益率 |
+|---------|------|--------------|------|--------|
+| 99 | 当前价×99 | 要约价×99 | 差额 | 价差% |
+| 50 | 当前价×50 | 要约价×50 | 差额 | 价差% |
 
-Edit `config/config.json` with your settings:
+### 第四步：风险分析
 
-```jsonc
-{
-  "email": {
-    "smtp_server": "smtp.gmail.com",
-    "smtp_port": 587,
-    "username": "your-email@gmail.com",
-    "password": "your-app-password",       // Use App Password for Gmail
-    "from_address": "your-email@gmail.com",
-    "recipients": [
-      "recipient1@example.com",
-      "recipient2@example.com"
-    ]
-  },
-  "schedule": {
-    "enabled": true,
-    "run_time": "08:00",          // Local time (24h format)
-    "timezone": "America/New_York"
-  },
-  "scan": {
-    "min_spread_pct": 0.5,        // Minimum spread % to include
-    "include_odd_lot_only": false, // If true, only show deals with odd-lot priority
-    "max_days_to_expiry": 90      // Ignore offers expiring beyond this
-  }
-}
-```
+对每笔交易评估以下风险：
 
-## Usage
+**高风险因素（红色警告）：**
+- 🔴 部分收购 — proration 风险极高
+- 🔴 负价差 — 当前股价高于要约价
+- 🔴 交易有未满足的前提条件
 
-### Full Pipeline (one command)
-```bash
-python3 scripts/run_pipeline.py --config config/config.json
-```
+**中等风险因素（黄色警告）：**
+- ⚠️ 无 odd-lot 优先权 — 所有股东按比例缩减
+- ⚠️ 价差异常大（>20%）— 市场可能在定价某种风险
+- ⚠️ 等待时间长（>60天）— 资金占用成本
+- ⚠️ 需要监管审批
 
-### Individual Steps
+**低风险信号（绿色）：**
+- ✅ Odd-lot 优先权已确认
+- ✅ 全部收购（无 proration）
+- ✅ 董事会一致推荐
+- ✅ 交割/要约价差在合理范围（1%-20%）
 
-**Step 1: Scan for active tender offers**
-```bash
-python3 scripts/scan_tender_offers.py --config config/config.json --output results/scan.json
-```
+### 第五步：排名和生成报告
 
-**Step 2: Verify SEC filings for each opportunity**
-```bash
-python3 scripts/verify_filings.py --input results/scan.json --output results/verified.json
-```
+**排名规则（得分越高越好）：**
 
-**Step 3: Generate report**
-```bash
-python3 scripts/generate_report.py --input results/verified.json --output results/report.md
-```
+1. Odd-lot 优先权 + 正价差 → 最高优先级
+2. 正价差(>1%) + 全部收购 → 高优先级
+3. 正价差 + 部分收购 → 中等（需考虑 proration）
+4. 价差接近零 → 低优先级
+5. 负价差 → 不推荐
 
-**Step 4: Send email**
-```bash
-python3 scripts/send_email.py --config config/config.json --report results/report.md
-```
+**报告格式（严格按照以下格式输出）：**
 
-You can also specify recipients on the command line:
-```bash
-python3 scripts/send_email.py --config config/config.json --report results/report.md \
-  --to "user1@example.com,user2@example.com"
-```
+````markdown
+# 🔍 要约收购套利机会扫描报告
 
-### Schedule Daily Runs
-```bash
-# Install a cron job for daily execution
-python3 scripts/scheduler.py --install --config config/config.json
+> **扫描日期**: YYYY年MM月DD日 | **数据来源**: SEC EDGAR, Seeking Alpha, InsideArbitrage, 公开市场数据
 
-# Remove the cron job
-python3 scripts/scheduler.py --uninstall
+---
 
-# Show current schedule
-python3 scripts/scheduler.py --status
-```
+## 📊 活跃机会总览
 
-### Dry Run (no network, sample data)
-```bash
-python3 scripts/run_pipeline.py --dry-run
-```
+| 排名 | 股票 | 类型 | 要约价 | 当前价 | 毛价差 | 截止日 | Odd-Lot优先 | 推荐度 |
+|------|------|------|--------|--------|--------|--------|------------|--------|
+| ⭐1 | **XXXX** | 发行人回购 | $XX.XX | $XX.XX | XX.X% | MM/DD | ✅/❌ | ⭐⭐⭐⭐⭐ |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
 
-## Data Sources
+---
 
-| Source | Purpose |
-|--------|---------|
-| SEC EDGAR EFTS | Search for SC TO-I, SC TO-T, SC 14D-9 filings |
-| SEC EDGAR Filing Pages | Download and parse tender offer documents |
-| Yahoo Finance (yfinance) | Current stock prices, shares outstanding |
-| InsideArbitrage.com | Cross-reference active tender offer list |
+## 🥇 机会 #1: XXXX (公司名) — 一句话概括
 
-## Key Concepts
+| 项目 | 详情 |
+|------|------|
+| **类型** | 具体类型说明 |
+| **回购/收购总额** | $XXX |
+| **要约价** | $XX.XX/股 |
+| **当前股价** | ~$XX.XX |
+| **截止日** | YYYY年MM月DD日 |
+| **Odd-Lot 优先** | ✅/❌ + 说明 |
 
-### Tender Offer Types
-- **Issuer Bid (SC TO-I)**: Company buys back its own shares (e.g., DCBO, YEXT)
-- **Third-Party Bid (SC TO-T)**: Another company acquires shares (e.g., GLDD, ACLX)
-- **Dutch Auction**: Price range; final price determined by lowest price that fills the buyback
-- **Fixed Price**: Single offer price for all shares
+### 套利分析
+详细的价差计算和 odd-lot 收益表
 
-### Odd-Lot Priority
-Many tender offers give priority to shareholders holding < 100 shares. Their shares are accepted in full before any proration is applied to larger holders. This is the key edge for small arbitrage positions.
+### 风险因素
+- 风险1
+- 风险2
+- ...
 
-### Spread Calculation
-```
-Gross Spread = (Offer Price - Current Price) / Current Price × 100%
-Annualized = Gross Spread × (365 / Days to Expiry)
-```
+> [!TIP] 或 [!WARNING] 或 [!CAUTION]
+> 关键提示
 
-## Output Example
+---
 
-The generated report includes:
-- Summary table of all active opportunities ranked by attractiveness
-- Per-deal analysis: spread, odd-lot status, proration risk, key dates
-- Risk factors and action items
-- Timestamp and data source citations
+（对每个机会重复上述格式）
 
-## Agent Workflow
+## 🎯 行动建议总结
 
-When an agent uses this skill, it should follow this workflow:
+### 值得立即行动的机会
+| 优先级 | 标的 | 策略 | 预期利润 | 时间 | 行动 |
+|-------|------|------|---------|------|------|
 
-1. **Check config** — Verify `config/config.json` exists and has valid settings
-2. **Run scan** — Execute `scan_tender_offers.py` to find active offers
-3. **Verify filings** — Execute `verify_filings.py` to validate deal terms from SEC
-4. **Generate report** — Execute `generate_report.py` to create the analysis
-5. **Review report** — Read the generated Markdown and provide any additional commentary
-6. **Send email** — Execute `send_email.py` if email is configured
-7. **Log results** — Save scan history to `results/` directory for tracking
+### 可以观察但不急的机会
+| 标的 | 原因 |
 
-If running in scheduled mode, the agent should use `scheduler.py` to set up cron.
+### 不推荐
+| 标的 | 原因 |
+
+---
+
+## 💡 执行要点
+1. 确认券商支持参与 tender offer
+2. 多标的分散风险
+3. ...
+
+> [!NOTE]
+> 免责声明：以上分析仅供参考，不构成投资建议。
+````
+
+### 第六步：保存报告
+
+将报告保存为 Markdown 文件到 `results/YYYY-MM-DD/report.md`。
+
+---
+
+## 关键知识
+
+### 什么是 Tender Offer？
+
+要约收购是一方（公司自身或第三方）向股东公开提出以固定价格购买股份的要约。
+
+**两种主要类型：**
+
+| 类型 | 发起方 | SEC 文件 | 套利逻辑 |
+|------|--------|---------|---------|
+| **Issuer Bid** | 公司自己 | SC TO-I | 公司回购自己的股票，价格通常有溢价 |
+| **Third-Party Bid** | 外部收购方 | SC TO-T | 收购方出价购买目标公司股票 |
+
+### Odd-Lot 优先权
+
+许多 tender offer 给予"零散股"持有者（通常持有<100股）优先权：
+- **不受 proration 影响** — 即使整体超额认购，odd-lot 股东100%被接受
+- **这是小额投资者的最大优势** — 买入≤99股即可享受全额套利
+
+### Dutch Auction（荷兰式拍卖）
+
+- 公司设定一个价格区间（如 $5.75-$6.50）
+- 股东选择愿意出售的最低价格
+- 公司找到能买够目标数量的最低"清算价"
+- 所有被接受的股东都按统一清算价结算
+- **策略：** 通常建议提交价格区间的最高价，确保被接受（最终仍按清算价结算）
+
+### Proration（按比例缩减）
+
+当认购量超过回购目标时：
+- 所有非 odd-lot 的认购者按比例缩减
+- 例：2倍超额认购 → 每人只被接受50%
+- **Odd-lot 股东免受此影响**（这就是套利优势）
+
+---
+
+## 前置要求
+
+- 网络访问权限（搜索和获取股价）
