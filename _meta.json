@@ -1,15 +1,21 @@
 {
   "slug": "tender-offer-arbitrage",
-  "version": "2.0.0",
-  "name": "Tender Offer Arbitrage Scanner",
-  "description": "AI Agent skill for scanning and analyzing tender offer arbitrage opportunities. The agent searches SEC EDGAR, financial news, and market data to identify active tender offers, verify terms through official filings, and generate comprehensive analysis reports with spread calculations, odd-lot strategies, and risk assessments.",
+  "version": "3.0.0",
+  "name": "Event-Driven Arbitrage Scanner (Tender Offer, Merger, SPAC, CEF, Rights)",
+  "description": "AI Agent skill for scanning and analyzing 5 types of event-driven arbitrage opportunities: Tender Offer (with odd-lot priority), Cash Merger, SPAC NAV arbitrage, Closed-End Fund discount (activist catalyst), and Rights Offering over-subscription. The agent searches SEC EDGAR, spacresearch.com, CEFConnect, InsideArbitrage, and financial news to identify active opportunities, verifies terms through type-specific official filings, and generates ranked analysis reports with type-adapted spread calculations and risk assessments.",
   "author": "user",
   "tags": [
     "finance",
     "arbitrage",
     "tender-offer",
+    "merger-arbitrage",
+    "spac",
+    "closed-end-fund",
+    "rights-offering",
     "sec-edgar",
+    "event-driven",
     "investing"
   ],
-  "publishedAt": "2026-02-28"
+  "publishedAt": "2026-02-28",
+  "updatedAt": "2026-03-02"
 }
